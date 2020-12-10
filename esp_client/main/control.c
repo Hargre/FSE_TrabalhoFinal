@@ -1,40 +1,54 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/gpio.h"
+#include "cJSON.h"
+
 
 #include "control.h"
+#include "button.h"
 #include "led.h"
-#include "http_client.h"
 
-extern xSemaphoreHandle blinkSemaphore;
-extern xSemaphoreHandle wifiSemaphore;
+xQueueHandle interruptQueue;
 
-void TaskHTTPRequestChain(void *params) {
+void IRAM_ATTR gpio_isr_handler(void *args) {
+    int pin = (int)args;
+    xQueueSendFromISR(interruptQueue, &pin, NULL);
+}
+
+void setupButtonHandler() {
+    interruptQueue = xQueueCreate(10, sizeof(int));
+    xTaskCreate(buttonHandler, "ButtonHandler", 2048, NULL, 1, NULL);
+}
+
+void buttonHandler(void *params) {
+    int pin;
     while (true) {
-        if (xSemaphoreTake(wifiSemaphore, portMAX_DELAY)) {
-            char url[128];
-            ESP_LOGI("HTTP Request Task", "Request Location");
-            blink_led();
-            build_ipstack_url(url);
-            http_request(url);
-            ESP_LOGI("HTTP Request Task", "Request Weather");
-            blink_led();
-            build_owm_url(url);
-            http_request(url);
+        if (xQueueReceive(interruptQueue, &pin, portMAX_DELAY)) {
+            int state = gpio_get_level(pin);
+            if (state == 1) {
+                gpio_isr_handler_remove(pin);
+                debounce();
 
-            xSemaphoreGive(wifiSemaphore);
-            vTaskDelay(REQUEST_TIMER / portTICK_PERIOD_MS);
+                printf("Button toggled!\n");
+
+                vTaskDelay(50 / portTICK_PERIOD_MS);
+                gpio_isr_handler_add(pin, &gpio_isr_handler, (void *)pin);
+            }
         }
     }
 }
 
-void TaskBlink(void *params) {
-    while (true) {
-        if (xSemaphoreTake(blinkSemaphore, portMAX_DELAY)) {
-            blink_led();
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-            xSemaphoreGive(blinkSemaphore);
-        }
+void handleMessage(char *message) {
+    cJSON *data = cJSON_Parse(message);
+    cJSON *toggle = cJSON_GetObjectItem(data, "toggle");
+    if (toggle) {
+        set_led_state(toggle->valueint);
+    } else {
+        char *room_value;
+        room_value = cJSON_GetObjectItem(data, "room")->valuestring;
+        printf("%s\n", room_value);
     }
 }

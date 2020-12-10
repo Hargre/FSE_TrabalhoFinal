@@ -2,11 +2,13 @@
 #define WEATHER_H
 
 typedef struct Weather_t {
-    double temp_current;
-    double temp_max;
-    double temp_min;
-    double humidity;
+    int temperature;
+    int humidity;
 } Weather_t;
 
+#define DHT_GPIO 4
+
+void init_sensor();
+void read_sensor(Weather_t *data);
 
 #endif
