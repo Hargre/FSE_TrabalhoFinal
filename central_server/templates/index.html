@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"
+        integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+</head>
+<body>
+    <h1>FSE</h1>
+    <main class="container">
+        <section class="central-server">
+            <h2>Módulo Central</h2>
+            <ul class="climate" id="climate">
+                <li id="central-temp">Temperatura:</li>
+                <li id="central-hum">Umidade:</li>
+            </ul>
+            <div class="lamp" id="Lamp01">
+                <div class="lamp-group">
+                    <span>Lâmpada 01</span>
+                    <button onclick="toggleButton(17)">Alternar</button>
+                </div>
+                <div class="status-indicator"></div>
+            </div>
+            <div class="lamp" id="Lamp02">
+                <div class="lamp-group">
+                    <span>Lâmpada 02</span>
+                    <button onclick="toggleButton(18)">Alternar</button>
+                </div>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="presence" id="Presence01">
+                <span>Presença (Sala)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="presence" id="Presence02">
+                <span>Presença (Cozinha)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="open" id="Open01">
+                <span>Porta (Cozinha)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="open" id="Open02">
+                <span>Janela (Cozinha)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="open" id="Open03">
+                <span>Porta (Sala)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+            <div class="open" id="Open04">
+                <span>Janela (Sala)</span>
+                <div class="status-indicator"></div>
+
+            </div>
+        </section>
+        <section id="esp-clients" class="esp-clients">
+            <!-- <div class="client" id="client1">
+                <h2>ESP Client</h2>
+                <ul>
+                    <li>Temperatura:</li>
+                    <li>Umidade:</li>
+                </ul>
+            </div>
+            <div class="client" id="client2">
+                <h2>ESP Client</h2>
+                <ul>
+                    <li>Temperatura:</li>
+                    <li>Umidade:</li>
+                </ul>
+            </div>
+            <div class="client" id="client3">
+                <h2>ESP Client</h2>
+                <ul>
+                    <li>Temperatura:</li>
+                    <li>Umidade:</li>
+                </ul>
+            </div>
+            <div class="client" id="client4">
+                <h2>ESP Client</h2>
+                <ul>
+                    <li>Temperatura:</li>
+                    <li>Umidade:</li>
+                </ul>
+            </div>
+            <div class="client" id="client5">
+                <h2>ESP Client</h2>
+                <ul>
+                    <li>Temperatura:</li>
+                    <li>Umidade:</li>
+                </ul>
+            </div> -->
+        </section>
+    </main>
+
+    <div class="modal" id="register-modal">
+        <div class="modal-content">
+            <h2>Adicionar dispositivo</h2>
+
+            <label for="room_name">Nome do cômodo</label>
+            <input type="text" name="room_name" id="room_name">
+            
+            <label for="in_device">Nome do dipositivo de entrada</label>
+            <input type="text" name="in_device" id="in_device">
+    
+            <label for="out_device">Nome do dipositivo de saída</label>
+            <input type="text" name="out_device" id="out_device">
+    
+            <button onclick="saveDevice()">Adicionar dispositivo</button>
+        </div>
+    </div>
+
+    <script>
+        let address = '';
+        let socket = io();
+        socket.on('update_central', function (data) {
+            console.log(data);
+            const temp = document.getElementById('central-temp');
+            temp.textContent = `Temperatura: ${data.temperature}`;
+            const hum = document.getElementById('central-hum');
+            hum.textContent = `Umidade: ${data.humidity}`;
+            for (let sensor of data.sensors) {
+                const sensor_el = document.getElementById(sensor.name);
+                const indicator = sensor_el.getElementsByClassName("status-indicator")[0];
+                if (sensor.value) {
+                    indicator.className = "status-indicator active";
+                } else {
+                    indicator.className = "status-indicator";
+                }
+            }
+        });
+        socket.on('update', function (data) {
+            console.log(data);
+            address = data.address;            
+        });
+        socket.on('register', function (data) {
+            let modal = document.getElementById('register-modal');
+            modal.style.display = "block";
+        });
+    </script>
+    <script>
+        function toggleButton (button) {
+            socket.emit('button', {'id': button})
+            // let modal = document.getElementById('register-modal');
+            // modal.style.display = "block";
+        }
+        function saveDevice() {
+            const roomName = document.getElementById('room_name');
+            const inDevice = document.getElementById('in_device');
+            const outDevice = document.getElementById('out_device');
+
+            const clientsContainer = document.getElementById('esp-clients');
+
+            const clientDiv = document.createElement('div');
+            clientDiv.id = roomName.value;
+            clientDiv.className = 'client';
+
+            const clientHeader = document.createElement('h2');
+            clientHeader.textContent = roomName.value;
+
+            const clientReadings = document.createElement('ul');
+
+            const clientTemp = document.createElement('li');
+            const clientHum = document.createElement('li');
+
+            clientTemp.id = roomName.value + "_temp";
+            clientHum.id = roomName.value + "_hum";
+
+            clientReadings.appendChild(clientTemp);
+            clientReadings.appendChild(clientHum);
+
+            clientDiv.appendChild(clientHeader);
+            clientDiv.appendChild(clientReadings);
+
+            clientsContainer.appendChild(clientDiv);
+
+            socket.emit('register', {
+                'roomName': roomName.value,
+                'inDevice': inDevice.value,
+                'outDevice': outDevice.value,
+                'address': address
+            });
+
+            let modal = document.getElementById('register-modal');
+            modal.style.display = "none";
+        }
+    </script>
+
+    <style>
+        body, html {
+            box-sizing: border-box;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4); 
+        }
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-width: 600px;
+            margin: auto;
+            padding: 24px;
+            background-color: #fff;
+        }
+        .lamp-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .esp-clients {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: end;
+        }
+        .client {
+            border: 1px solid black;
+            margin: 16px;
+            padding: 8px;
+        }
+        .container {
+            width: 90%;
+            margin: auto;
+            display: flex;
+        }
+        .central-server {
+            display: flex;
+            flex-direction: row;
+            border: 1px solid black;
+            max-width: 464px;
+            flex-wrap: wrap;
+        }
+        .status-indicator {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 1px solid black;
+            background-color: #ccc;
+        }
+        .status-indicator.active {
+            background-image: linear-gradient(to right top, #6abf69, #61b660, #58ac58, #4ea34f, #459a47, #3d9240, #358a38, #2d8231, #247929, #1a7121, #0f6818, #00600f);
+        }
+        .lamp, .presence, .open {
+            min-width: 200px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        h2, .climate {
+            min-width: 400px;
+        }
+
+        /* .client {
+            display: none;
+        } */
+    </style>
+</body>
+</html>
