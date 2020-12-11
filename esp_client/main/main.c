@@ -27,10 +27,28 @@ int storage_status;
 char room[15];
 
 void readsens(void *params) {
+    char tdata[20];
+    char hdata[20];
+    char ttopic[50];
+    char htopic[50];
+
     while (1) {
         read_sensor(&weather_data);
         printf("t: %d\n", weather_data.temperature);
         printf("h: %d\n", weather_data.humidity);
+
+        if  (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY) && xSemaphoreTake(transmitDataSemaphore, portMAX_DELAY)) {
+            sprintf(tdata, "{\"t\": \"%d\"}", weather_data.temperature);
+            sprintf(ttopic, "fse2020/150009313/%s/temperatura", room);
+            mqtt_send_message(ttopic, tdata);
+            sprintf(hdata, "{\"h\": \"%d\"}", weather_data.humidity);
+            sprintf(htopic, "fse2020/150009313/%s/umidade", room);
+            mqtt_send_message(htopic, hdata);
+
+            xSemaphoreGive(conexaoMQTTSemaphore);
+            xSemaphoreGive(transmitDataSemaphore);
+        }
+
         vTaskDelay(30000 / portTICK_PERIOD_MS);
     }
 }
@@ -56,27 +74,6 @@ void conectadoWifi(void * params) {
     }
 }
 
-void trataComunicacaoComServidor(void * params) {
-    char tdata[20];
-    char hdata[20];
-    char ttopic[50];
-    char htopic[50];
-    while(true) {
-        if  (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY) && xSemaphoreTake(transmitDataSemaphore, portMAX_DELAY)) {
-            sprintf(tdata, "{\"t\": \"%d\"}", weather_data.temperature);
-            sprintf(ttopic, "fse2020/150009313/%s/temperatura", room);
-            mqtt_send_message(ttopic, tdata);
-            sprintf(hdata, "{\"h\": \"%d\"}", weather_data.humidity);
-            sprintf(htopic, "fse2020/150009313/%s/umidade", room);
-            mqtt_send_message(htopic, hdata);
-
-            xSemaphoreGive(conexaoMQTTSemaphore);
-            xSemaphoreGive(transmitDataSemaphore);
-
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-        }
-    }
-}
 
 void dispatchButtonState(void *params) {
     while (true) {
@@ -119,5 +116,4 @@ void app_main(void) {
     xTaskCreate(&readsens, "Leitura dht", 2048, NULL, 1, NULL);
     setupButtonHandler();
     init_button();
-    xTaskCreate(&trataComunicacaoComServidor, "Envia sensor", 4096, NULL, 1, NULL);
 }
