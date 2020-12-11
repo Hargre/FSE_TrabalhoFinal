@@ -14,6 +14,7 @@
 #include "button.h"
 #include "led.h"
 #include "mqtt.h"
+#include "storage.h"
 
 xQueueHandle interruptQueue;
 extern char room[15];
@@ -75,6 +76,7 @@ void handleMessage(char *message) {
             char sub[50];
             sprintf(sub, "fse2020/150009313/%s/output", room_value);
             mqtt_subscribe(sub);
+            write_room_data(room_value);
             printf("%s\n", room_value);
         }
     }

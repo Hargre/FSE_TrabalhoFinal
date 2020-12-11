@@ -46,6 +46,11 @@ void conectadoWifi(void * params) {
                 sprintf(topic, "fse2020/150009313/dispositivos/%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
                 mqtt_send_message(topic, "{\"action\": \"new\"}");
                 mqtt_subscribe(topic);
+            } else {
+                char sub[50];
+                sprintf(sub, "fse2020/150009313/%s/output", room);
+                mqtt_subscribe(sub);
+                xSemaphoreGive(transmitDataSemaphore);
             }
         }
     }
@@ -96,12 +101,12 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    // storage_status = get_initialization_status(room);
-    // if (storage_status) {
-    //     ESP_LOGI("Storage", "Room: %s", room);
-    // } else {
-    //     ESP_LOGI("Storage", "No room stored");
-    // }
+    storage_status = get_initialization_status(room);
+    if (storage_status) {
+        ESP_LOGI("Storage", "Room: %s", room);
+    } else {
+        ESP_LOGI("Storage", "No room stored");
+    }
 
     wifiSemaphore = xSemaphoreCreateBinary();
     conexaoMQTTSemaphore = xSemaphoreCreateBinary();

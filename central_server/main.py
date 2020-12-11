@@ -9,6 +9,7 @@ import threading
 from time import sleep
 
 import json
+import csv
 
 def mqtthread(socketio):
     client = MqttClient.get_instance(socketio)
@@ -31,7 +32,16 @@ socketio = SocketIO(app)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    devices = []
+    try:
+        with open("data/devices.csv") as devices_csv:
+            reader = csv.reader(devices_csv)
+            for row in reader:
+                devices.append({"room": row[0], "in": row[1], "out": row[2]})
+    except FileNotFoundError:
+        with open("data/devices.csv", "w") as devices_csv:
+            pass
+    return render_template('index.html', devices=devices)
 
 
 @socketio.on('button')
@@ -43,7 +53,9 @@ def register_device(data):
     print(data)
     client = MqttClient.get_instance(socketio)
     client.publish("dispositivos/%s" % data['address'], json.dumps({"room": data['roomName']}))
-    client.subscribe(data['roomName'])
+    with open('data/devices.csv', 'a+', newline='') as devices_csv:
+        writer = csv.writer(devices_csv)
+        writer.writerow([data['roomName'], data['inDevice'], data['outDevice']])
     print(data)
 
 @socketio.on('remoteOut')

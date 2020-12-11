@@ -63,41 +63,20 @@
             </div>
         </section>
         <section id="esp-clients" class="esp-clients">
-            <!-- <div class="client" id="client1">
-                <h2>ESP Client</h2>
-                <ul>
-                    <li>Temperatura:</li>
-                    <li>Umidade:</li>
-                </ul>
-            </div>
-            <div class="client" id="client2">
-                <h2>ESP Client</h2>
-                <ul>
-                    <li>Temperatura:</li>
-                    <li>Umidade:</li>
-                </ul>
-            </div>
-            <div class="client" id="client3">
-                <h2>ESP Client</h2>
-                <ul>
-                    <li>Temperatura:</li>
-                    <li>Umidade:</li>
-                </ul>
-            </div>
-            <div class="client" id="client4">
-                <h2>ESP Client</h2>
-                <ul>
-                    <li>Temperatura:</li>
-                    <li>Umidade:</li>
-                </ul>
-            </div>
-            <div class="client" id="client5">
-                <h2>ESP Client</h2>
-                <ul>
-                    <li>Temperatura:</li>
-                    <li>Umidade:</li>
-                </ul>
-            </div> -->
+            {% for device in devices %}
+                <div class="client" id="{{ device.room }}">
+                    <h2>{{ device.room }}</h2>
+                    <ul>
+                        <li id="{{ device.room + '_temp' }}">Temperatura: -</li>
+                        <li id="{{ device.room + '_hum' }}">Umidade: -</li>
+                        <li id="{{ device.room + '_sta' }}">Estado: -</li>
+                    </ul>
+                    <div id="{{ device.room + '_out' }}">
+                        <span>{{ device.out }}</span>
+                        <button onclick="toggleRemote('{{ device.room }}')">Alternar</button>
+                    </div>
+                </div>
+            {% endfor %}
         </section>
     </main>
 
@@ -168,6 +147,9 @@
             // let modal = document.getElementById('register-modal');
             // modal.style.display = "block";
         }
+        function toggleRemote (device) {
+            socket.emit('remoteOut', {'id': device})
+        }
         function saveDevice() {
             const roomName = document.getElementById('room_name');
             const inDevice = document.getElementById('in_device');
@@ -229,6 +211,7 @@
             inDevice.value = '';
             outDevice.value = '';
         }
+
     </script>
 
     <style>

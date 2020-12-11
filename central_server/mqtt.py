@@ -14,6 +14,7 @@ class MqttClient:
         self.client.on_message = self.on_message
         self.client.connect(self.broker)
         self.client.loop_start()
+        self.subscribe()
     
     @classmethod
     def get_instance(cls, socketio):
@@ -40,8 +41,10 @@ class MqttClient:
         print("Connected to broker")
         client.subscribe("fse2020/150009313/dispositivos/#")
 
-    def subscribe(self, room):
-        self.client.subscribe("fse2020/150009313/%s/#" % (room))
+    def subscribe(self):
+        self.client.subscribe("fse2020/150009313/+/temperatura")
+        self.client.subscribe("fse2020/150009313/+/umidade")
+        self.client.subscribe("fse2020/150009313/+/estado")
 
 
     def publish(self, topic, message):
