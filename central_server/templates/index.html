@@ -137,11 +137,27 @@
                 }
             }
         });
+        socket.on('update_client', function (data) {
+            console.log(data);
+
+            const room = data.room;
+
+            if (data.sensor.t) {
+                const tempDisplay = document.getElementById(room+"_temp");
+                tempDisplay.textContent = `Temperatura: ${data.sensor.t}`;
+            } else if (data.sensor.h) {
+                const humDisplay = document.getElementById(room+"_hum");
+                humDisplay.textContent = `Umidade: ${data.sensor.h}`;
+            } else if (data.sensor.s) {
+                const staDisplay = document.getElementById(room+"_sta");
+                staDisplay.textContent = `Estado: ${data.sensor.s}`;
+            }
+        })
         socket.on('update', function (data) {
             console.log(data);
-            address = data.address;            
         });
         socket.on('register', function (data) {
+            address = data.address;          
             let modal = document.getElementById('register-modal');
             modal.style.display = "block";
         });
@@ -170,15 +186,32 @@
 
             const clientTemp = document.createElement('li');
             const clientHum = document.createElement('li');
+            const clientSta = document.createElement('li');
 
             clientTemp.id = roomName.value + "_temp";
             clientHum.id = roomName.value + "_hum";
+            clientSta.id = roomName.value + "_sta";
 
             clientReadings.appendChild(clientTemp);
             clientReadings.appendChild(clientHum);
+            clientReadings.appendChild(clientSta);
+
+            const clientOuputDiv = document.createElement('div');
+            clientOuputDiv.id = roomName.value + "_out";
+            const clientOutuputDesc = document.createElement('span');
+            clientOutuputDesc.textContent = outDevice.value;
+            const clientToggle = document.createElement('button');
+            clientToggle.textContent = "Alternar";
+            clientToggle.onclick = function(ev) {
+                socket.emit('remoteOut', {'id': clientDiv.id})
+            };
+            
+            clientOuputDiv.appendChild(clientOutuputDesc);
+            clientOuputDiv.appendChild(clientToggle);
 
             clientDiv.appendChild(clientHeader);
             clientDiv.appendChild(clientReadings);
+            clientDiv.appendChild(clientOuputDiv);
 
             clientsContainer.appendChild(clientDiv);
 
@@ -191,6 +224,10 @@
 
             let modal = document.getElementById('register-modal');
             modal.style.display = "none";
+
+            roomName.value = '';
+            inDevice.value = '';
+            outDevice.value = '';
         }
     </script>
 

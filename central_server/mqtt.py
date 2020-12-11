@@ -4,6 +4,8 @@ import json
 
 
 class MqttClient:
+    _instance = None
+
     def __init__(self, socketio):
         self.broker = "test.mosquitto.org"
         self.client = mqtt.Client()
@@ -13,14 +15,40 @@ class MqttClient:
         self.client.connect(self.broker)
         self.client.loop_start()
     
+    @classmethod
+    def get_instance(cls, socketio):
+        if cls._instance is None:
+            cls._instance = cls(socketio)
+        return cls._instance
+
     def on_message(self, client, userdata, message):
+        print(message.payload)
         data = json.loads(message.payload.decode('utf-8'))
-        self.socket.emit('register', data)
+
+
+        topic = message.topic.split("/")
+        print(topic)
+
+        if topic[2] == 'dispositivos' and topic[3] not in ['temperatura', 'umidade', 'estado']:
+            if (data.get('action')):
+                self.socket.emit('register', {"address": topic[3]})
+        else:
+            self.socket.emit('update_client', {"sensor": data, "room": topic[2]})
         print(data)
 
     def on_connect(self, client, userdata, flags, rc):
         print("Connected to broker")
         client.subscribe("fse2020/150009313/dispositivos/#")
+
+    def subscribe(self, room):
+        self.client.subscribe("fse2020/150009313/%s/#" % (room))
+
+
+    def publish(self, topic, message):
+        topic_base = "fse2020/150009313/%s" % (topic)
+        print(topic_base)
+        print(message)
+        self.client.publish(topic_base, message)
 
     def destroy(self):
         self.client.disconnect()

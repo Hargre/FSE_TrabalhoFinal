@@ -1,27 +1,29 @@
-# from gpio import setup_gpio
-# from gpio import read_devices
-# from gpio import toggle_device
-# from climate import Climate
+from gpio import setup_gpio
+from gpio import read_devices
+from gpio import toggle_device
+from climate import Climate
 from mqtt import MqttClient
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import threading
 from time import sleep
 
-def mqtthread(socketio):
-    client = MqttClient(socketio)
+import json
 
-# def sensor_pollings(socketio):
-#     climate = Climate()
-#     while True:
-#         cli_data = climate.read_data()
-#         sensor_data = read_devices()
-#         socketio.emit('update_central', {
-#             "temperature": "%.2f" % cli_data.temperature,
-#             "humidity": "%.2f" % cli_data.humidity,
-#             "sensors": sensor_data
-#         })
-#         sleep(5)
+def mqtthread(socketio):
+    client = MqttClient.get_instance(socketio)
+
+def sensor_pollings(socketio):
+    climate = Climate()
+    while True:
+        cli_data = climate.read_data()
+        sensor_data = read_devices()
+        socketio.emit('update_central', {
+            "temperature": "%.2f" % cli_data.temperature,
+            "humidity": "%.2f" % cli_data.humidity,
+            "sensors": sensor_data
+        })
+        sleep(1)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -39,6 +41,16 @@ def handle_button(data):
 @socketio.on('register')
 def register_device(data):
     print(data)
+    client = MqttClient.get_instance(socketio)
+    client.publish("dispositivos/%s" % data['address'], json.dumps({"room": data['roomName']}))
+    client.subscribe(data['roomName'])
+    print(data)
+
+@socketio.on('remoteOut')
+def toggle_client_output(data):
+    print(data)
+    client = MqttClient.get_instance(socketio)
+    client.publish("%s/output" % data['id'], json.dumps({"toggle": 1}))
 
 
 def main():

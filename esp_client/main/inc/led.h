@@ -5,6 +5,6 @@
 
 void init_led();
 void blink_led();
-void set_led_state(int state);
+void toggle_led();
 
 #endif

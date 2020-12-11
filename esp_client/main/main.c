@@ -20,10 +20,11 @@
 
 xSemaphoreHandle wifiSemaphore;
 xSemaphoreHandle conexaoMQTTSemaphore;
+xSemaphoreHandle transmitDataSemaphore;
 
 Weather_t weather_data;
 int storage_status;
-char room[50];
+char room[15];
 
 void readsens(void *params) {
     while (1) {
@@ -43,30 +44,49 @@ void conectadoWifi(void * params) {
                 char topic[50];
                 esp_efuse_mac_get_default(mac);
                 sprintf(topic, "fse2020/150009313/dispositivos/%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-                mqtt_send_message(topic, "new");
+                mqtt_send_message(topic, "{\"action\": \"new\"}");
                 mqtt_subscribe(topic);
             }
         }
     }
 }
 
-void trataComunicacaoComServidor(void * params)
-{
-  char tdata[20];
-  char hdata[20];
-  if(xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY))
-  {
-    while(true)
-    {
-        sprintf(tdata, "t: %d", weather_data.temperature);
-        mqtt_send_message("fse2020/150009313/1/temperatura", tdata);
-        sprintf(hdata, "h: %d", weather_data.humidity);
-        mqtt_send_message("fse2020/150009313/1/umidade", hdata);
-        vTaskDelay(30000 / portTICK_PERIOD_MS);
+void trataComunicacaoComServidor(void * params) {
+    char tdata[20];
+    char hdata[20];
+    char ttopic[50];
+    char htopic[50];
+    while(true) {
+        if  (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY) && xSemaphoreTake(transmitDataSemaphore, portMAX_DELAY)) {
+            sprintf(tdata, "{\"t\": \"%d\"}", weather_data.temperature);
+            sprintf(ttopic, "fse2020/150009313/%s/temperatura", room);
+            mqtt_send_message(ttopic, tdata);
+            sprintf(hdata, "{\"h\": \"%d\"}", weather_data.humidity);
+            sprintf(htopic, "fse2020/150009313/%s/umidade", room);
+            mqtt_send_message(htopic, hdata);
+
+            xSemaphoreGive(conexaoMQTTSemaphore);
+            xSemaphoreGive(transmitDataSemaphore);
+
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
+        }
     }
-  }
 }
 
+void dispatchButtonState(void *params) {
+    while (true) {
+        if (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY) &&
+                xSemaphoreTake(transmitDataSemaphore, portMAX_DELAY)) {
+            char topic[50];
+            char data[20];
+            sprintf(topic, "fse2020/150009313/%s/estado", room);
+            sprintf(data, "{\"s\": \"%d\"}", (int)params);
+            mqtt_send_message(topic, data);
+            xSemaphoreGive(conexaoMQTTSemaphore);
+            xSemaphoreGive(transmitDataSemaphore);
+        }
+    }
+}
 
 void app_main(void) {
     esp_err_t ret = nvs_flash_init();
@@ -76,15 +96,16 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    storage_status = get_initialization_status(room);
-    if (storage_status) {
-        ESP_LOGI("Storage", "Room: %s", room);
-    } else {
-        ESP_LOGI("Storage", "No room stored");
-    }
+    // storage_status = get_initialization_status(room);
+    // if (storage_status) {
+    //     ESP_LOGI("Storage", "Room: %s", room);
+    // } else {
+    //     ESP_LOGI("Storage", "No room stored");
+    // }
 
     wifiSemaphore = xSemaphoreCreateBinary();
     conexaoMQTTSemaphore = xSemaphoreCreateBinary();
+    transmitDataSemaphore = xSemaphoreCreateBinary();
 
     init_led();
     wifi_start();

@@ -6,7 +6,7 @@
 
 void init_led() {
     gpio_pad_select_gpio(LED);
-    gpio_set_direction(LED, GPIO_MODE_OUTPUT);
+    gpio_set_direction(LED, GPIO_MODE_INPUT_OUTPUT);
 }
 
 void blink_led() {
@@ -15,6 +15,7 @@ void blink_led() {
     gpio_set_level(LED, 1);
 }
 
-void set_led_state(int state) {
-    gpio_set_level(LED, state);
+void toggle_led() {
+    int state = gpio_get_level(LED);
+    gpio_set_level(LED, !state);
 }

@@ -5,6 +5,6 @@
 
 void init_button();
 void handle_button_interrupt();
-void debounce();
+void debounce(int state);
 
 #endif

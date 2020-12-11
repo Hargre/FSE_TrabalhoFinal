@@ -10,6 +10,6 @@ class Climate:
 
     def read_data(self):
         data = bme280.sample(self.bus, self.address, self.calibration_params)
-        print("%.2f %.2f" % (data.temperature, data.humidity))
+        # print("%.2f %.2f" % (data.temperature, data.humidity))
         return data
     
