@@ -19,3 +19,7 @@ void toggle_led() {
     int state = gpio_get_level(LED);
     gpio_set_level(LED, !state);
 }
+
+int get_led_status() {
+    return gpio_get_level(LED);
+}

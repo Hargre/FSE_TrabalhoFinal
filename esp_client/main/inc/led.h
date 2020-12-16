@@ -6,5 +6,6 @@
 void init_led();
 void blink_led();
 void toggle_led();
+int get_led_status();
 
 #endif

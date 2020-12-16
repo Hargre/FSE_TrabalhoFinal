@@ -44,3 +44,7 @@ def toggle_device(device):
         GPIO.output(device, 1)
     else:
         GPIO.output(device, 0)
+
+
+def close_gpio():
+    GPIO.cleanup()

@@ -61,6 +61,11 @@
                 <div class="status-indicator"></div>
 
             </div>
+            <div class="alarm" id="alarm-group">
+                <span id="alarm-span">Alarme: {{ state.alarm }}</span>
+                <button id="alarm-button" onclick="toggleAlarm()">{{ state.alarmButton }}</button>
+                <span id="alarm-error"></span>
+            </div>
         </section>
         <section id="esp-clients" class="esp-clients">
             {% for device in devices %}
@@ -69,10 +74,13 @@
                     <ul>
                         <li id="{{ device.room + '_temp' }}">Temperatura: -</li>
                         <li id="{{ device.room + '_hum' }}">Umidade: -</li>
-                        <li id="{{ device.room + '_sta' }}">Estado: -</li>
                     </ul>
+                    <div id="{{ device.room + '_sta' }}">
+                        <span>Estado {{ device.in }}: </span><span id="{{ device.room + '_sta_text' }}"}}>-</span>
+                    </div>
                     <div id="{{ device.room + '_out' }}">
                         <span>{{ device.out }}</span>
+                        <div class="status-indicator"></div>
                         <button onclick="toggleRemote('{{ device.room }}')">Alternar</button>
                     </div>
                 </div>
@@ -123,32 +131,66 @@
 
             if (data.sensor.t) {
                 const tempDisplay = document.getElementById(room+"_temp");
-                tempDisplay.textContent = `Temperatura: ${data.sensor.t}`;
+                if (tempDisplay) {
+                    tempDisplay.textContent = `Temperatura: ${data.sensor.t}`;
+                }
             } else if (data.sensor.h) {
                 const humDisplay = document.getElementById(room+"_hum");
-                humDisplay.textContent = `Umidade: ${data.sensor.h}`;
+                if (humDisplay) {
+                    humDisplay.textContent = `Umidade: ${data.sensor.h}`;
+                }
             } else if (data.sensor.s) {
-                const staDisplay = document.getElementById(room+"_sta");
-                staDisplay.textContent = `Estado: ${data.sensor.s}`;
+                const staDisplay = document.getElementById(room+"_sta_text");
+                if (staDisplay) {
+                    staDisplay.textContent = data.sensor.s;
+                }
+            } else if (data.sensor.o !== undefined) {
+                const outDisplay = document.getElementById(room+"_out");
+                if (outDisplay) {
+                    const indicator = outDisplay.getElementsByClassName("status-indicator")[0];
+                    if (data.sensor.o === "1") {
+                        indicator.className = "status-indicator active";
+                    } else {
+                        indicator.className = "status-indicator";
+                    }
+                }
             }
         })
         socket.on('update', function (data) {
             console.log(data);
         });
         socket.on('register', function (data) {
-            address = data.address;          
+            address = data.address;
             let modal = document.getElementById('register-modal');
             modal.style.display = "block";
         });
+        socket.on('alarmToggled', function (data) {
+            const errorMsg = document.getElementById('alarm-error');
+            if (!data.success) {
+                errorMsg.textContent = "Não foi possível ativar o alarme. Verifique portas, janelas e cômodos e tente novamente.";
+            } else {
+                errorMsg.textContent = "";
+                const alarmSpan = document.getElementById("alarm-span");
+                const alarmButton = document.getElementById("alarm-button");
+                if (data.newState) {
+                    alarmSpan.textContent = "Alarme: Ativado";
+                    alarmButton.textContent = "Desativar";
+                } else {
+                    alarmSpan.textContent = "Alarme: Desativado";
+                    alarmButton.textContent = "Ativar";
+                }
+            }
+        })
     </script>
     <script>
         function toggleButton (button) {
             socket.emit('button', {'id': button})
-            // let modal = document.getElementById('register-modal');
-            // modal.style.display = "block";
         }
         function toggleRemote (device) {
             socket.emit('remoteOut', {'id': device})
+        }
+        function toggleAlarm () {
+            socket.emit('toggleAlarm', {'data': 'fill'});
         }
         function saveDevice() {
             const roomName = document.getElementById('room_name');
@@ -168,20 +210,29 @@
 
             const clientTemp = document.createElement('li');
             const clientHum = document.createElement('li');
-            const clientSta = document.createElement('li');
 
             clientTemp.id = roomName.value + "_temp";
             clientHum.id = roomName.value + "_hum";
-            clientSta.id = roomName.value + "_sta";
 
             clientReadings.appendChild(clientTemp);
             clientReadings.appendChild(clientHum);
-            clientReadings.appendChild(clientSta);
+
+            const clientInputDiv = document.createElement('div');
+            clientInputDiv.id = roomName.value + "_sta";
+            const clientInputDesc = document.createElement('span');
+            clientInputDesc.textContent = `Estado ${inDevice.value}: `;
+            const clientInputValue = document.createElement('span');
+            clientInputValue.id = roomName.value + "_sta_text";
+            
+            clientInputDiv.appendChild(clientInputDesc);
+            clientInputDiv.appendChild(clientInputValue);
 
             const clientOuputDiv = document.createElement('div');
             clientOuputDiv.id = roomName.value + "_out";
             const clientOutuputDesc = document.createElement('span');
             clientOutuputDesc.textContent = outDevice.value;
+            const clientOutputDisplay = document.createElement('div');
+            clientOutputDisplay.className = 'status-indicator'
             const clientToggle = document.createElement('button');
             clientToggle.textContent = "Alternar";
             clientToggle.onclick = function(ev) {
@@ -189,10 +240,12 @@
             };
             
             clientOuputDiv.appendChild(clientOutuputDesc);
+            clientOuputDiv.appendChild(clientOutputDisplay);
             clientOuputDiv.appendChild(clientToggle);
 
             clientDiv.appendChild(clientHeader);
             clientDiv.appendChild(clientReadings);
+            clientDiv.appendChild(clientInputDiv);
             clientDiv.appendChild(clientOuputDiv);
 
             clientsContainer.appendChild(clientDiv);

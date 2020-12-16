@@ -66,6 +66,11 @@ void handleMessage(char *message) {
     cJSON *toggle = cJSON_GetObjectItem(data, "toggle");
     if (toggle) {
         toggle_led();
+        char topic[50];
+        char data[20];
+        sprintf(topic, "fse2020/150009313/%s/estado", room);
+        sprintf(data, "{\"o\": \"%d\"}", get_led_status());
+        mqtt_send_message(topic, data);
     } else {
         char *room_value;
         cJSON *room_item = cJSON_GetObjectItem(data, "room");
