@@ -15,11 +15,16 @@
 #include "led.h"
 #include "mqtt.h"
 #include "storage.h"
+#include "climate.h"
 
 xQueueHandle interruptQueue;
 extern char room[15];
+extern int storage_status;
+extern Weather_t weather_data;
 extern xSemaphoreHandle transmitDataSemaphore;
 extern xSemaphoreHandle conexaoMQTTSemaphore;
+extern xSemaphoreHandle wifiSemaphore;
+
 
 void IRAM_ATTR gpio_isr_handler(void *args) {
     int pin = (int)args;
@@ -29,10 +34,6 @@ void IRAM_ATTR gpio_isr_handler(void *args) {
 void setupButtonHandler() {
     interruptQueue = xQueueCreate(10, sizeof(int));
     xTaskCreate(buttonHandler, "ButtonHandler", 2048, NULL, 1, NULL);
-}
-
-void sendState(void *params) {
-    
 }
 
 void buttonHandler(void *params) {
@@ -86,4 +87,52 @@ void handleMessage(char *message) {
         }
     }
     cJSON_Delete(data);
+}
+
+void readSensors(void *params) {
+    char tdata[20];
+    char hdata[20];
+    char ttopic[50];
+    char htopic[50];
+
+    while (1) {
+        read_sensor(&weather_data);
+        printf("t: %d\n", weather_data.temperature);
+        printf("h: %d\n", weather_data.humidity);
+
+        if  (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY) && xSemaphoreTake(transmitDataSemaphore, portMAX_DELAY)) {
+            sprintf(tdata, "{\"t\": \"%d\"}", weather_data.temperature);
+            sprintf(ttopic, "fse2020/150009313/%s/temperatura", room);
+            mqtt_send_message(ttopic, tdata);
+            sprintf(hdata, "{\"h\": \"%d\"}", weather_data.humidity);
+            sprintf(htopic, "fse2020/150009313/%s/umidade", room);
+            mqtt_send_message(htopic, hdata);
+
+            xSemaphoreGive(conexaoMQTTSemaphore);
+            xSemaphoreGive(transmitDataSemaphore);
+        }
+
+        vTaskDelay(30000 / portTICK_PERIOD_MS);
+    }
+}
+
+void setupMqtt(void * params) {
+    while(true) {
+        if(xSemaphoreTake(wifiSemaphore, portMAX_DELAY)) {
+            mqtt_start();
+            if (!storage_status) {
+                uint8_t mac[6] = {0};
+                char topic[50];
+                esp_efuse_mac_get_default(mac);
+                sprintf(topic, "fse2020/150009313/dispositivos/%x%x%x%x%x%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                mqtt_send_message(topic, "{\"action\": \"new\"}");
+                mqtt_subscribe(topic);
+            } else {
+                char sub[50];
+                sprintf(sub, "fse2020/150009313/%s/output", room);
+                mqtt_subscribe(sub);
+                xSemaphoreGive(transmitDataSemaphore);
+            }
+        }
+    }
 }

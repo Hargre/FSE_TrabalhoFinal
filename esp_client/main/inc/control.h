@@ -7,5 +7,7 @@ void IRAM_ATTR gpio_isr_handler(void *args);
 void setupButtonHandler();
 void buttonHandler(void *params);
 void handleMessage(char *message);
+void readSensors(void *params);
+void setupMqtt(void * params);
 
 #endif

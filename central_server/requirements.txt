@@ -1,0 +1,4 @@
+Flask
+flask-socketio
+smbus2
+bme280

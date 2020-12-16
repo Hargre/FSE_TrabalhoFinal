@@ -1,53 +1,36 @@
 from gpio import setup_gpio
-from gpio import read_devices
-from gpio import toggle_device
 from gpio import close_gpio
 from climate import Climate
 from state import HouseState
-from control import trigger_alarm
+from control import mqtthread
+from control import sensor_pollings
+from control import register_device
+from control import handle_button
+from control import toggle_client_output
+from control import toggle_alarm
 from logger import Logger
 from mqtt import MqttClient
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import threading
-from time import sleep
 
 import signal
 import sys
 
-import json
 import csv
 
 def cleanup(signal, frame):
     close_gpio()
     sys.exit(0)
 
-
-def mqtthread(socketio):
-    client = MqttClient.get_instance(socketio)
-
-def sensor_pollings(socketio):
-    climate = Climate()
-    state = HouseState.get_instance()
-    while True:
-        cli_data = climate.read_data()
-        sensor_data = read_devices()
-        socketio.emit('update_central', {
-            "temperature": "%.2f" % cli_data.temperature,
-            "humidity": "%.2f" % cli_data.humidity,
-            "sensors": sensor_data
-        })
-        if state.alarm and state.did_state_change(sensor_data):
-            print("Alarm!!!")
-            trigger_alarm()
-        state.set_state(sensor_data)
-        sleep(1)
-
 signal.signal(signal.SIGINT, cleanup)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
+
+import logging
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 @app.route('/')
 def index():
@@ -69,43 +52,20 @@ def index():
 
 
 @socketio.on('button')
-def handle_button(data):
-    toggle_device(data['id'])
-    logger = Logger.get_instance()
-    logger.log_command(str(data['id']))
+def handle_button_event(data):
+    handle_button(data)
 
 @socketio.on('register')
-def register_device(data):
-    print(data)
-    client = MqttClient.get_instance(socketio)
-    client.publish("dispositivos/%s" % data['address'], json.dumps({"room": data['roomName']}))
-    with open('data/devices.csv', 'a+', newline='') as devices_csv:
-        writer = csv.writer(devices_csv)
-        writer.writerow([data['roomName'], data['inDevice'], data['outDevice']])
-    logger = Logger.get_instance()
-    logger.log_command("Register")
-    print(data)
+def register_device_event(data):
+    register_device(data, socketio)
 
 @socketio.on('remoteOut')
-def toggle_client_output(data):
-    print(data)
-    client = MqttClient.get_instance(socketio)
-    client.publish("%s/output" % data['id'], json.dumps({"toggle": 1}))
+def toggle_client_output_event(data):
+    toggle_client_output(data, socketio)
 
 @socketio.on('toggleAlarm')
-def toggle_alarm(data):
-    success = True
-    state = HouseState.get_instance()
-    if state.alarm:
-        state.alarm = False
-    else:
-        if state.any_inputs_active():
-            success = False
-        else:
-            state.alarm = True
-    logger = Logger.get_instance()
-    logger.log_command('ToggleAlarm')
-    socketio.emit('alarmToggled', {'success': success, 'newState': state.alarm})
+def toggle_alarm_event(data):
+    toggle_alarm(data, socketio)
 
 def main():
     logger = Logger.get_instance()
